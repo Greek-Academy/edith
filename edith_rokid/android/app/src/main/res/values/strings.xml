@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">E.D.I.T.H</string>
+    <string name="hint_text_input">指示（例: 田中さんを覚えて）</string>
+    <string name="btn_identify">◎</string>
+    <string name="btn_mic">🎙</string>
+    <string name="btn_send">➤</string>
+    <string name="btn_settings">⚙︎</string>
+    <string name="permission_rationale">カメラとマイクへのアクセスを許可してください</string>
+</resources>

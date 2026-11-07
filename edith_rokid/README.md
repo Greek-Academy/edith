@@ -1,87 +1,101 @@
 # E.D.I.T.H Rokid
 
-E.D.I.T.H の**Rokidスマートグラス向けWebクライアント**。
+E.D.I.T.H の**Rokidスマートグラス向けクライアント**。
 [`brilliant.xyz Halo`](https://brilliant.xyz/) は詐欺商品で実機入手が不可能になったため、
 代替としてRokidのスマートグラスに対応する。バックエンド（[`../edith/backend`](../edith/backend)）
 は変更なし。
 
-## 実装方針（重要）
+実機（Rokid Glasses、ディスプレイ付き2025/2026モデル）を入手できたため、**正式な
+Androidアプリ（[`android/`](./android)）を実装済み**。これがメインの実装。
+Web版（ブラウザ経由、下記）は実機未検証の代替手段として残してある。
 
-**独自実装ではなく、[`../edith_mobile`](../edith_mobile) のコア実装(`App`クラス一式)をそのまま
-相対importで共有している。** 差分は「カメラ取得時にfacingMode制約を付けない」の1点のみ。
+## Android版（`android/`、メイン実装）
 
-```ts
-// edith_rokid/src/main.ts
-import { App } from "../../edith_mobile/src/app";
-const app = new App({}); // facingMode未指定 = 既定カメラ（グラス本体のカメラ）を使う
+### 重要な調査結果: Rokid公式SDK(CXR SDK)は不要
+
+公式ドキュメントが薄いため、community製の [`buildwithfenna/rokid-docs`](https://github.com/buildwithfenna/rokid-docs)
+と実働サンプル [`zero2005x/RokidAIAssistant`](https://github.com/zero2005x/RokidAIAssistant) を実際に
+フェッチして確認した結果:
+
+- **Rokid Glasses本体はAndroid 12ベース（YodaOS, SDK 32）の通常のAndroid機**。
+  グラスのカメラは**標準の`android.hardware.camera2` API**で直接取得できる
+  （`externalCameraId ?: backCameraId ?: frontCameraId`の優先順位で「external」＝グラス本体カメラを選ぶ。
+  [`GlassesCameraSource.kt`](./android/app/src/main/java/com/edith/rokid/camera/GlassesCameraSource.kt)参照）。
+- Rokid公式の **CXR-S SDK**（`com.rokid.cxr:cxr-service-bridge`, maven.rokid.com）は
+  **メッセージング/接続状態監視用**であり、カメラ・ディスプレイには関与しない。
+- 今回のユースケース（スマホとのペアリング無し、グラス単体でバックエンドに直接HTTPで喋る）では
+  **CXR SDK自体が不要**（Rokidへの申請・契約も不要）。`android/`配下はRokidの依存を一切含まない、
+  **普通のAndroidアプリ**。
+- インストールはRokid公式の**開発用ケーブル**（磁気充電ポートがデータポートを兼ねる。付属の
+  充電専用ケーブルではADB不可）で接続し、「Hi Rokid」アプリでADBを有効化した上で`adb install`。
+
+→ `edith_mobile`（Web版）で確立済みのロジック（API契約・顔追跡sticky・HUD状態遷移）を
+そのままKotlinに移植している（コード共有ではなく、同じ仕様の再実装）。
+
+### 技術スタック
+
+- Kotlin, Android Gradle Plugin 8.7.3, Kotlin 2.0.21
+- compileSdk 34 / targetSdk 34 / minSdk 28（実機はSDK 32なので問題なし）
+- カメラ: `android.hardware.camera2`（Rokid SDK不要）
+- 顔検出: `com.google.mediapipe:tasks-vision`（Android版 FaceDetector、`edith_mobile`と同じ
+  `blaze_face_short_range`モデルを`assets/`に同梱）
+- 通信: OkHttp マルチパートPOST。エンドポイント・フィールド名は`edith_mobile/src/api/*.ts`と同じ契約
+- 音声: `AudioRecord`でWAV録音→`voice_assistant_agent`の`/v1/agent/audio`へ送信
+  （YodaOSにGoogleの`SpeechRecognizer`バックエンドが載っているか未確認のため、確実な方式を採用）
+- 設定: `SharedPreferences`でAPI接続先を保存
+
+### ビルド・実機インストール
+
+[`android/DEPLOY.md`](./android/DEPLOY.md) を参照。このセッションでは
+`./gradlew assembleDebug` が成功することまで確認済み（コンパイルエラー無し）。
+実機への`adb install`・実際の動作確認（グラス上でのカメラ・顔検出・識別・HUD表示）は未実施
+（Rokid公式の開発用ケーブルが必要なため、ユーザー側で実施）。
+
+### ディレクトリ構成
+
+```
+android/
+  app/src/main/
+    AndroidManifest.xml
+    java/com/edith/rokid/
+      MainActivity.kt                 # edith_mobileのapp.ts相当
+      camera/GlassesCameraSource.kt   # Camera2、external>back>front優先
+      vision/ClientFaceDetector.kt    # MediaPipe tasks-vision FaceDetector
+      tracking/{Track,TrackManager,FaceBox}.kt
+      api/{FaceApi,VoiceAgentApi}.kt  # edith_mobileと同じAPI契約
+      hud/{HudView,HudState}.kt
+      voice/SpeechInput.kt            # AudioRecord→WAV
+      config/ApiConfig.kt             # SharedPreferences
+    assets/blaze_face_short_range.tflite
+    res/layout/activity_main.xml
 ```
 
-```ts
-// 参考: edith_mobile/src/main.ts
-const app = new App({ cameraFacingMode: "environment" }); // スマホの背面カメラ
-```
+### 未検証（実機が必要）
 
-これは [`../edith_mobile/README.md`](../edith_mobile/README.md) にある設計判断
-「まずedith_mobileのWebクライアントをRokid側でも動かす方針で設計」をそのまま実装したもの。
-`api/`・`camera/`・`vision/`・`tracking/`・`hud/`・`voice/`・`config/`・`app.ts` は一切複製せず
-`edith_mobile/src` を直接参照する。複製しているのは `index.html`（同一のDOM要素IDを持つ必要がある）・
-`style.css`（将来グラス側のHUD仕様に合わせて分岐させる前提）・`public/`（マニフェスト名のみ違う）・
-Dockerまわりの3ファイルだけ。
+- グラス本体のカメラIDが実際に`LENS_FACING_EXTERNAL`として列挙されるか（`backCameraId`/`frontCameraId`
+  にフォールバックした場合の映り方・画角）
+- `AudioRecord`でのマイク録音が実機で問題なく動くか
+- MediaPipe tasks-visionの顔検出がグラス本体の非力なチップで実用的なフレームレートで動くか
+  （`DETECT_INTERVAL_MS=200`は暫定値。重ければ伸ばす）
+- APKサイズが約60MB（MediaPipeのネイティブライブラリ+tfliteモデル込み）。グラスのストレージ容量次第では
+  `minifyEnabled`/ABI分割などの最適化が必要になる可能性
 
-> **注意**: `edith_mobile/src` 配下のファイル（特に`app.ts`が参照するDOM要素ID）を変更する際は、
-> `edith_rokid/index.html` も同じIDを保っているか確認すること。
+## Web版（このディレクトリ直下の`index.html`・`src/`等、代替手段）
 
-## ローカル開発
+実機検証前に用意していたブラウザ経由の案。`android/`以外の、`edith_rokid/`直下にある
+`index.html`・`src/`・`package.json`・`Dockerfile`等一式がこれにあたる。Android版が実機で動くなら
+不要になる可能性が高いが、AIUI Studio（公式、ブラウザから開発可能なプラットフォーム）やLumen
+（非公式、`getUserMedia`でグラスのカメラにアクセス）など、Rokid側にもブラウザ経路の開発手段が
+あるため残してある。
 
-```bash
-npm install
-npm run dev
-```
+`src/`配下は[`../edith_mobile`](../edith_mobile)のコアロジックを相対importでそのまま共有
+（差分はカメラ取得オプションのみ）。詳細は[`DEPLOY.md`](./DEPLOY.md)（Web版のデプロイ手順）を参照。
 
-`vite.config.ts` で `server.fs.allow` に親ディレクトリを追加しているため、
-`../edith_mobile/src/*` への相対importは開発サーバ上でもそのまま解決される
-（`npx tsc -b` / `npm run build` でも動作確認済み）。
-
-## デプロイ
-
-Docker + cloudflaredでの公開手順は [`DEPLOY.md`](./DEPLOY.md) を参照。
-**ビルドコンテキストが`edith_mobile`との親ディレクトリになる点に注意**
-（`edith_mobile/src`を相対importで参照しているため）。
-
-## 調査結果（Rokid公式/非公式の開発ルート、2026年時点）
-
-公式ドキュメントは薄く未確定要素が多い。いずれも二次情報であり、Rokid公式ドキュメントでの
-裏取りが必要。
+### 調査結果（Rokid公式/非公式のブラウザ開発ルート、参考情報）
 
 | ルート | 種別 | 概要 |
 | --- | --- | --- |
-| **CXR SDK** | 公式 | Android向け。phone module + glasses moduleの構成で、グラスのカメラフレーム取得等が可能。 |
-| **AIUI Studio** | 公式 | 2026年にグローバル展開。ブラウザから直接開発でき、実機を持っていなくてもハードウェアシミュレーションで動作確認できる。 |
-| **Lumen** | 非公式・ベータ | ブラウザアプリから`getUserMedia`で直接グラスのカメラにアクセスできる実験的プロジェクト。装着者は一度だけ許可操作が必要。 |
+| **AIUI Studio** | 公式 | 2026年にグローバル展開。ブラウザから直接開発でき、ハードウェアシミュレーションで動作確認できる。 |
+| **Lumen** | 非公式・ベータ | ブラウザアプリから`getUserMedia`で直接グラスのカメラにアクセスできる実験的プロジェクト。 |
 
-出典:
-- Rokid Glasses HUD update: microLED waveguide, SDK + app store, AI model choice — armdevices.net
-- Rokid launches AIUI Studio globally at IFA Berlin 2026 — adnkronos.com
-- awesome-rokid（コミュニティ製ドキュメント集、CXR SDK/YodaOSのリバースエンジニアリング情報を含む）
-
-## 未解決事項（実機・開発者アクセスが無いと確定できない）
-
-- このアプリをAIUI Studio / Lumen的なブラウザ経路で実際に開いた際、`getUserMedia`がグラスの
-  カメラを返すか（＝`main.ts`の「facingMode未指定なら既定カメラ＝グラスのカメラ」という前提の検証）。
-- グラスのHUD表示解像度・FOVに合わせた`index.html`/`style.css`のレイアウト調整
-  （現時点ではスマホ版と全く同じレイアウトのまま）。
-- 音声入力（Web Speech API / MediaRecorderフォールバック）やマイク権限がRokid側ブラウザで
-  同じように動くか。
-- 公式ドキュメント（Rokid Developer Portal）での仕様確認。
-- 上記で問題が出た場合のみ、CXR SDKベースのネイティブ(Android)実装を検討する
-  （その場合もAPI契約(`faceApi.ts`/`voiceAgentApi.ts`相当)は`edith_mobile`と同じにする）。
-
-## 実機・開発者アクセスが取れたら
-
-1. Rokid Developer Portal / AIUI Studio のアカウントを取得する。
-2. このアプリ（`npm run build`の成果物、または`DEPLOY.md`のURL）をAIUI Studio / Lumen的な
-   ブラウザ経路で開き、上記「未解決事項」を1つずつ潰す。
-3. カメラ取得に問題があれば `src/main.ts` の`App`オプション、または
-   `edith_mobile/src/camera/cameraSource.ts` 側に必要な分岐を追加する
-   （既存の`CameraInitOptions`を拡張する形で、`edith_mobile`側の挙動は変えない）。
-4. レイアウト調整が必要なら、まず `edith_rokid/src/style.css`（独自ファイル）から着手する。
+出典: Rokid Glasses HUD update (armdevices.net) / Rokid launches AIUI Studio globally at IFA Berlin 2026 (adnkronos.com)
