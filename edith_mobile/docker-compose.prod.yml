@@ -1,0 +1,12 @@
+# 本番(unischool)用の上書き設定。`docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` で使う。
+# ホストにポートを公開せず、同じ外部ネットワーク(edith_net)上のcloudflaredコンテナから
+# コンテナ名(edith_mobile)で到達させる。
+services:
+  web:
+    ports: !override []
+    networks:
+      - edith_net
+
+networks:
+  edith_net:
+    external: true

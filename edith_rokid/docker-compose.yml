@@ -12,3 +12,5 @@ services:
     ports:
       - "8081:80"
     restart: unless-stopped
+# 本番(unischool)ではホストにポートを公開せず、cloudflaredコンテナから内部ネットワーク経由で
+# 到達する構成にしている（docker-compose.prod.yml参照）。ローカル/単体確認用はこのままでよい。
