@@ -1,0 +1,13 @@
+{
+  "name": "E.D.I.T.H",
+  "short_name": "EDITH",
+  "description": "社会的記憶を補助するスマートグラス/モバイルWebクライアント",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#06080a",
+  "theme_color": "#0b0f12",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

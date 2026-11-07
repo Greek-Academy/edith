@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b0f12" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <title>E.D.I.T.H</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- フルスクリーンAR: カメラ映像 + HUDオーバーレイ -->
+      <div id="stage">
+        <video id="camera-video" autoplay playsinline muted></video>
+        <canvas id="hud-canvas"></canvas>
+      </div>
+
+      <!-- 上部バー -->
+      <header id="top-bar">
+        <span id="brand">E.D.I.T.H</span>
+        <div id="top-actions">
+          <button id="btn-controls" title="設定（追跡・学習）" aria-label="追跡設定">⚙︎</button>
+          <button id="btn-connection" title="接続先" aria-label="接続先設定">🔗</button>
+        </div>
+      </header>
+
+      <!-- 下部バー: ログ + 入力 -->
+      <footer id="bottom-bar">
+        <div id="log" aria-live="polite"></div>
+        <div id="input-row">
+          <button id="btn-identify" title="今すぐ識別" aria-label="今すぐ識別">◎</button>
+          <input id="text-input" type="text" placeholder="指示（例: 田中さんを覚えて）" autocomplete="off" />
+          <button id="btn-mic" title="音声入力" aria-label="音声入力">🎙</button>
+          <button id="btn-send" title="送信" aria-label="送信">➤</button>
+        </div>
+      </footer>
+
+      <!-- 接続先設定シート -->
+      <div id="sheet-connection" class="sheet" hidden>
+        <h2>接続先</h2>
+        <label>Voice Agent URL<input id="input-agent-url" type="url" /></label>
+        <label>Face API URL<input id="input-face-url" type="url" /></label>
+        <div class="sheet-actions">
+          <button id="btn-connection-save">保存</button>
+          <button id="btn-connection-cancel" class="secondary">キャンセル</button>
+        </div>
+      </div>
+
+      <!-- 追跡・学習設定シート -->
+      <div id="sheet-controls" class="sheet" hidden>
+        <h2>追跡・学習</h2>
+        <div id="camera-picker-row" hidden>
+          <label>カメラ<select id="camera-select"></select></label>
+        </div>
+        <label class="switch-row"><input id="toggle-auto" type="checkbox" checked /> 自動追跡・識別</label>
+        <label class="switch-row"><input id="toggle-autolearn" type="checkbox" checked /> 角度サンプルを自動学習</label>
+        <label class="switch-row"><input id="toggle-mirror" type="checkbox" checked /> ミラー表示</label>
+        <div class="sheet-actions">
+          <button id="btn-controls-close">閉じる</button>
+        </div>
+      </div>
+
+      <div id="permission-hint" class="hint" hidden>
+        カメラ（背面）とマイクへのアクセスを許可してください。
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

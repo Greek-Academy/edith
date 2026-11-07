@@ -1,0 +1,3 @@
+[submodule "edith"]
+	path = edith
+	url = https://github.com/tanahiro2010/edith

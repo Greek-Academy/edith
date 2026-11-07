@@ -1,0 +1,11 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        VITE_EDITH_AGENT_URL: ${VITE_EDITH_AGENT_URL:-http://localhost:8010}
+        VITE_EDITH_FACE_URL: ${VITE_EDITH_FACE_URL:-http://localhost:8000}
+    container_name: edith_mobile
+    ports:
+      - "8080:80"
+    restart: unless-stopped
