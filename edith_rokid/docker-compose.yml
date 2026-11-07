@@ -1,0 +1,14 @@
+services:
+  web:
+    build:
+      # edith_mobile/src を相対importで共有しているため、ビルドコンテキストは
+      # edith_mobile/edith_rokidの親ディレクトリにする（下のcontext: ..を参照）。
+      context: ..
+      dockerfile: edith_rokid/Dockerfile
+      args:
+        VITE_EDITH_AGENT_URL: ${VITE_EDITH_AGENT_URL:-http://localhost:8010}
+        VITE_EDITH_FACE_URL: ${VITE_EDITH_FACE_URL:-http://localhost:8000}
+    container_name: edith_rokid
+    ports:
+      - "8081:80"
+    restart: unless-stopped

@@ -1,0 +1,11 @@
+# edith_rokid/docker-compose.yml は build context を親ディレクトリ(ここ)にしている
+# （edith_mobile/src を相対importで共有しているため）。無関係な edith/ 配下
+# （.venv・node_modules等を含む旧Halo実装一式）をビルドコンテキストに含めないようにする。
+edith/
+edith_mobile/node_modules
+edith_mobile/dist
+edith_rokid/node_modules
+edith_rokid/dist
+**/.git
+**/*.log
+**/.DS_Store
