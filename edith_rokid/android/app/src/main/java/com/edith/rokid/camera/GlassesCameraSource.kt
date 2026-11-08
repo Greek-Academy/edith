@@ -56,6 +56,9 @@ class GlassesCameraSource(
     @Volatile
     private var latestJpeg: ByteArray? = null
 
+    @Volatile
+    private var lastConvertAtMs: Long = 0L
+
     val isLive: Boolean get() = cameraDevice != null && captureSession != null
 
     fun startBackgroundThread() {
@@ -78,7 +81,16 @@ class GlassesCameraSource(
 
         val reader = ImageReader.newInstance(previewWidth, previewHeight, ImageFormat.YUV_420_888, 2)
         reader.setOnImageAvailableListener({ r ->
-            r.acquireLatestImage()?.use { image -> latestJpeg = imageToJpeg(image) }
+            // カメラは~30fpsでフレームを出し続けるが、実際にJPEGが必要なのは検出/識別ループ
+            // (最短でも200ms間隔)だけなので、変換自体をその頻度に間引く。
+            // 毎フレームYUV->NV21->JPEG変換すると発熱の主因になる。
+            r.acquireLatestImage()?.use { image ->
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (now - lastConvertAtMs >= CONVERT_INTERVAL_MS) {
+                    lastConvertAtMs = now
+                    latestJpeg = imageToJpeg(image)
+                }
+            }
         }, backgroundHandler)
         imageReader = reader
 
@@ -187,6 +199,9 @@ class GlassesCameraSource(
     }
 
     companion object {
+        /** JPEG変換の最小間隔(ms)。検出ループ(200ms)より少し短い程度で十分。 */
+        private const val CONVERT_INTERVAL_MS = 150L
+
         /** YUV_420_888 の Image を NV21 経由でJPEGバイト列に変換する。 */
         private fun imageToJpeg(image: Image, quality: Int = 85): ByteArray {
             val nv21 = yuv420ToNv21(image)
