@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.text.InputType
 import android.view.KeyEvent
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -19,7 +20,6 @@ import com.edith.rokid.api.AgentAction
 import com.edith.rokid.api.FaceApi
 import com.edith.rokid.api.VoiceAgentApi
 import com.edith.rokid.camera.GlassesCameraSource
-import com.edith.rokid.camera.awaitSurfaceTexture
 import com.edith.rokid.config.ApiConfig
 import com.edith.rokid.databinding.ActivityMainBinding
 import com.edith.rokid.hud.HudState
@@ -77,6 +77,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // android:keepScreenOn/turnScreenOnはmanifestの<activity>では効かないため、
+        // Windowフラグで明示的にスリープを抑止する。
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD,
+        )
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -109,9 +117,8 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun initCamera() {
         try {
-            val cam = GlassesCameraSource(this, binding.cameraTexture)
+            val cam = GlassesCameraSource(this)
             cam.startBackgroundThread()
-            binding.cameraTexture.awaitSurfaceTexture()
             cam.open()
             camera = cam
             addLog("📷 カメラ起動（グラス本体カメラ）")

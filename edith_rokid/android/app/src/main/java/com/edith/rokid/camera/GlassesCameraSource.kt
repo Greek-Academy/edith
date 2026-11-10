@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Rect
-import android.graphics.SurfaceTexture
 import android.graphics.YuvImage
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -17,7 +16,6 @@ import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.Surface
-import android.view.TextureView
 import com.edith.rokid.tracking.FaceBox
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -32,14 +30,14 @@ import kotlin.coroutines.resumeWithException
  * （グラス本体はAndroid 12ベースの通常機のため）。カメラIDは
  * `LENS_FACING_EXTERNAL`(グラス本体のARカメラ) → `LENS_FACING_BACK` → `LENS_FACING_FRONT` の優先順位で選ぶ。
  *
- * プレビュー表示用の[TextureView]と、顔検出・識別用の連続フレーム取得を同じCameraCaptureSessionの
- * 2つの出力先（プレビューSurface＋YUV ImageReader）として同時に流す。「現在のフレーム」は
- * 都度の静止画撮影ではなく、このYUVストリームの最新フレームをJPEG化して使う
+ * グラスは透過ディスプレイ想定で実世界はレンズ越しに直接見えるため、カメラ映像を画面に
+ * 再投影する必要はない。プレビュー用Surfaceは持たず、顔検出・識別用のYUV ImageReaderのみを
+ * CameraCaptureSessionの出力先にする。「現在のフレーム」は都度の静止画撮影ではなく、
+ * このYUVストリームの最新フレームをJPEG化して使う
  * （edith_mobileがcanvasで`<video>`の現在のフレームを取得するのと同じ考え方）。
  */
 class GlassesCameraSource(
     private val context: Context,
-    private val textureView: TextureView,
     private val previewWidth: Int = 1280,
     private val previewHeight: Int = 720,
 ) {
@@ -74,7 +72,7 @@ class GlassesCameraSource(
         backgroundHandler = null
     }
 
-    /** グラスのカメラ(external優先)を開き、プレビュー＋解析ストリームを開始する。 */
+    /** グラスのカメラ(external優先)を開き、解析ストリームを開始する。 */
     suspend fun open() {
         val cameraId = selectCameraId()
             ?: throw IllegalStateException("利用可能なカメラがありません")
@@ -97,12 +95,7 @@ class GlassesCameraSource(
         val device = openCameraDevice(cameraId)
         cameraDevice = device
 
-        val texture = textureView.surfaceTexture
-            ?: throw IllegalStateException("SurfaceTextureが準備できていません")
-        texture.setDefaultBufferSize(previewWidth, previewHeight)
-        val previewSurface = Surface(texture)
-
-        captureSession = createCaptureSession(device, previewSurface, reader.surface)
+        captureSession = createCaptureSession(device, reader.surface)
     }
 
     private fun selectCameraId(): String? {
@@ -138,15 +131,13 @@ class GlassesCameraSource(
 
     private suspend fun createCaptureSession(
         device: CameraDevice,
-        previewSurface: Surface,
         readerSurface: Surface,
     ): CameraCaptureSession = suspendCancellableCoroutine { cont ->
         device.createCaptureSession(
-            listOf(previewSurface, readerSurface),
+            listOf(readerSurface),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     val requestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-                        addTarget(previewSurface)
                         addTarget(readerSurface)
                         set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
                     }
@@ -248,22 +239,6 @@ class GlassesCameraSource(
                 }
             }
             return nv21
-        }
-    }
-}
-
-/** TextureViewのSurfaceTextureが準備できるまで待つ。Camera2+TextureViewの定石パターン。 */
-suspend fun TextureView.awaitSurfaceTexture(): SurfaceTexture {
-    surfaceTexture?.let { return it }
-    return suspendCancellableCoroutine { cont ->
-        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-                if (cont.isActive) cont.resume(surface)
-            }
-
-            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
-            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
         }
     }
 }

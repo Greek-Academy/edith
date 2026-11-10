@@ -11,7 +11,7 @@ data class ApiConfig(
     val faceBaseUrl: String = DEFAULT_FACE_URL,
 ) {
     companion object {
-        const val DEFAULT_AGENT_URL = "https://agent.unischool.jp"
+        const val DEFAULT_AGENT_URL = "https://agent.under18.dev"
         const val DEFAULT_FACE_URL = "https://face.unischool.jp"
 
         private const val PREFS = "edith.apiConfig"

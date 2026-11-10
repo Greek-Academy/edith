@@ -5,11 +5,9 @@
     android:layout_height="match_parent"
     android:background="#06080A">
 
-    <!-- android.view.TextureViewはandroid.widget配下ではないため完全修飾名で指定する -->
-    <android.view.TextureView
-        android:id="@+id/camera_texture"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    <!-- グラスは透過ディスプレイ想定で、実世界はレンズ越しに直接見える。
+         カメラ映像自体は画面に再投影しない(HudViewの枠・ステータスのみ表示)ため、
+         プレビュー用View自体を持たない(GlassesCameraSourceはImageReaderのみでカメラを開く)。 -->
 
     <com.edith.rokid.hud.HudView
         android:id="@+id/hud_view"

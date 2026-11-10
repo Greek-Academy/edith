@@ -23,6 +23,8 @@ class ClientFaceDetector(context: Context) {
                     .build(),
             )
             .setRunningMode(RunningMode.VIDEO)
+            // デフォルト(0.5)だとグラスの距離感ではやや厳しいので下げて拾いやすくする。
+            .setMinDetectionConfidence(0.3f)
             .build(),
     )
 
@@ -50,6 +52,10 @@ class ClientFaceDetector(context: Context) {
     }
 
     companion object {
+        // full_rangeも試したが、tasks-vision:0.10.14のグラフとテンソル形状が合わず
+        // detectForVideo()が毎回例外(RET_CHECK dims[1]==num_boxes_)で失敗したため、
+        // short_range(edith_mobileと同じ、2m程度を想定)に戻している。
+        // 遠距離検出が必要になったら、ライブラリ側のバージョンアップ後に再検討する。
         private const val MODEL_ASSET = "blaze_face_short_range.tflite"
     }
 }
